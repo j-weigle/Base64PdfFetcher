@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Base64 Testing</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <a
+    style="cursor: pointer"
+    onclick="(() => { const fetcher = new Base64PdfFetcher('http://localhost:3555/downloadpdf'); fetcher.downloadPdfs();})()"
+    >Download PDF</a
+  >
+
+  <body>
+    <script>
+      /**
+       * Base64PdfFetcher handles fetching, decoding, and downloading base64 encoded pdf files.
+       * Call Base64PdfFetcher.downloadPdfs with a url that will return a json object with base64
+       * pdf files in it
+       * Expects json to be formed as such:
+       *    single:
+       *    {
+       *      "filename": base64string
+       *    }
+       *    multiple:
+       *    {
+       *      "filename1": base64string,
+       *      "filename2": base64string
+       *    }
+       * Example usage:
+       *   const fetcher = new Base64PdfFetcher('http://localhost:3000/downloadpdf');
+       *   fetcher.downloadPdfs();
+       *   fetcher.downloadPdfs("http://localhost:3000/differentpdf");
+       */
+      class Base64PdfFetcher {
+        constructor(fileUrl) {
+          this.fileUrl = fileUrl;
+        }
+
+        setFileUrl(fileUrl) {
+          this.fileUrl = fileUrl;
+        }
+
+        /**
+         * downloadPdfs sends a GET request to fileUrl, extracts base64 encoded pdf objects from the json,
+         * turns them into blobs, generates urls using those blobs, and simulates the client clicking to
+         * download those blobs
+         *
+         * @param {string} fileUrl the url to get the pdfs from
+         * @return {void}
+         */
+        async downloadPdfs(fileUrl) {
+          const url = fileUrl ?? this.fileUrl;
+          const json = await this.getJson(url);
+
+          for (const [key, value] of Object.entries(json)) {
+            const pdfFile = await fetch(`data:application/pdf;base64,${value}`);
+            const pdfBlob = await pdfFile.blob();
+            const fName = key.endsWith('.pdf') ? key : `${key}.pdf`;
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(pdfBlob);
+            link.download = `${fName}`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+          }
+        }
+
+        async getJson(fileUrl) {
+          const url = fileUrl ?? this.fileUrl;
+          try {
+            const response = await fetch(url);
+            return response.json();
+          } catch (error) {
+            return error;
+          }
+        }
+
+        // /**
+        //  * b64toBlob takes a base64 encoded string and turns it into a Blob
+        //  *
+        //  * @param {string} b64Data the base64 encoded string to convert to a Blob
+        //  * @param {string} contentType the type of content contained in the base64 encoded string
+        //  * @param {number} sliceSize the size of byte slices to use when generating the byteArray that goes into the Blob
+        //  * @return {Blob}
+        //  */
+        // static b64toBlob(b64Data, contentType = "", sliceSize = 512) {
+        //   const byteString = atob(b64Data);
+        //   const byteArrays = [];
+
+        //   for (let pos = 0; pos < byteString.length; pos += sliceSize) {
+        //     const slice = byteString.slice(pos, pos + sliceSize);
+
+        //     // generate character code array
+        //     const byteNumbers = new Array(slice.length);
+        //     for (let i = 0; i < slice.length; i++) {
+        //       byteNumbers[i] = slice.charCodeAt(i);
+        //     }
+
+        //     // convert character code array to unsigned int array
+        //     const byteArray = new Uint8Array(byteNumbers);
+        //     byteArrays.push(byteArray);
+        //     // byteArrays.push(slice);
+        //   }
+
+        //   const blob = new Blob(byteArrays, { type: contentType });
+        //   return blob;
+        // }
+      }
+    </script>
+  </body>
+</html>
